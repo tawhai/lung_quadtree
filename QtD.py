@@ -10,12 +10,14 @@ study = 'Human_Aging'
 subject = 'AGING037'
 posture = 'Insp'
 z = 300
+threshold = 100
 
 img_glob = '/Raw/*.dcm'
 mask_glob = '/PTKLungMask/LungMask*.tiff'
 
 invert_yaxis = True
 invert_xaxis = False
+invert_zaxis = True
 show_img = True
 show_blocks = True
 
@@ -34,7 +36,10 @@ mask_filenames = glob.glob(path + mask_glob)
 if len(mask_filenames) == 0:
     sys.exit('Could not find mask images in %s' % (path + mask_glob))
 mask_filenames.sort()
-mask_filename = mask_filenames[z]
+if not invert_zaxis:
+    mask_filename = mask_filenames[z]
+else:
+    mask_filename = mask_filenames[len(mask_filenames)-z]
 print('Mask: %s' % (mask_filename))
 
 # Read in the image and the mask
@@ -80,15 +85,13 @@ def QuadTreeToImage(qt):
 
 # cond is the function passed to QuadTree that decides whether to split the region (return True) or not (return False)
 def cond(region):
-    size = region.shape[0]
     minimum = np.min(region)
     maximum = np.max(region)
-    #if size < 16 and maximum > 1000:
-    #    return False
-    if maximum - minimum > 300:
+    if maximum - minimum > threshold:
         return True
     return False
     
+################################################################
 
 qt = QuadTree(img, cond) 
 
