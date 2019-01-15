@@ -1,13 +1,18 @@
 import sys, os, glob
 import pydicom
 import numpy as np
-from scipy.misc import imread, imshow
+from scipy.misc import imread, imshow, imsave
 from scipy import ndimage
 
-study = 'Human_Lung_Atlas'
-subject = 'P2BRP159-H7102'
-posture = 'FRC'
+
+root = '/hpc/hkmu551/Lung' # os.environ['LUNG_ROOT']
+study = 'Human_Aging'
+subject = 'AGING037'
+posture = 'Insp'
 z = 300
+
+img_glob = '/Raw/*.dcm'
+mask_glob = '/PTKLungMask/LungMask*.tiff'
 
 invert_yaxis = True
 invert_xaxis = False
@@ -16,24 +21,30 @@ show_blocks = True
 
 ################################################################
 
-path = os.environ['LUNG_ROOT'] + '/Data/' + study + '/' + subject + '/' + posture
+path = root + '/Data/' + study + '/' + subject + '/' + posture
 
-img_filenames = glob.glob(path + '/Raw/DICOM/*.dcm')
+img_filenames = glob.glob(path + img_glob)
+if len(img_filenames) == 0:
+    sys.exit('Could not find DICOM images in %s' % (path + img_glob))
 img_filenames.sort()
 img_filename = img_filenames[z-1]
-mask_filename = path + ('/Lung/MaskJPGs/LungMask%04d.jpg' % (z-1))
-
 print('Image: %s' % (img_filename))
+
+mask_filenames = glob.glob(path + mask_glob)
+if len(mask_filenames) == 0:
+    sys.exit('Could not find mask images in %s' % (path + mask_glob))
+mask_filenames.sort()
+mask_filename = mask_filenames[z]
 print('Mask: %s' % (mask_filename))
 
 # Read in the image and the mask
 ds = pydicom.dcmread(img_filename)
 img = ds.pixel_array
-
 print('Dimensions: %dx%d' % img.shape)
 
 mask = imread(mask_filename)
-mask = np.sum(mask, 2)  # merge all color channels
+if len(mask.shape) == 3:
+    mask = np.sum(mask, 2)  # merge all color channels
 if invert_yaxis:
     mask = np.flipud(mask)
 if invert_xaxis:
@@ -72,9 +83,9 @@ def cond(region):
     size = region.shape[0]
     minimum = np.min(region)
     maximum = np.max(region)
-    if size < 16 and maximum > 1000:
-        return False
-    if maximum - minimum > 100:
+    #if size < 16 and maximum > 1000:
+    #    return False
+    if maximum - minimum > 300:
         return True
     return False
     
@@ -84,6 +95,7 @@ qt = QuadTree(img, cond)
 blocks = QuadTreeToImage(qt)
 if show_blocks:
     imshow(blocks)
+imsave('qtd_%s_%s_z%s.png' % (subject, posture, z), blocks)
 
 n = np.count_nonzero(img)
 print("# of blocks: %d" % len(qt))
